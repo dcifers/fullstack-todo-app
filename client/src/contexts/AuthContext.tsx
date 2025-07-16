@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, AuthContextType } from '../types';
+import { authAPI } from '../services/api';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -17,23 +18,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Check if user is already logged in when app starts
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // TODO: Validate token with backend
-      console.log('Token found, validating...');
-    }
-    setLoading(false);
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const response = await authAPI.getProfile();
+          setUser(response.data.user);
+        } catch (error) {
+          console.error('Token validation failed:', error);
+          localStorage.removeItem('token');
+        }
+      }
+      setLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // TODO: Make API call to backend
-      console.log('Logging in:', email);
-      // Temporary mock user
-      setUser({ id: '1', email, name: 'Test User' });
-    } catch (error) {
+      const response = await authAPI.login(email, password);
+      const { user, token } = response.data;
+      
+      localStorage.setItem('token', token);
+      setUser(user);
+    } catch (error: any) {
       console.error('Login error:', error);
+      const errorMessage = error.response?.data?.error || 'Login failed';
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -42,11 +55,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string) => {
     setLoading(true);
     try {
-      // TODO: Make API call to backend
-      console.log('Registering:', name, email);
-      setUser({ id: '1', email, name });
-    } catch (error) {
+      const response = await authAPI.register(name, email, password);
+      const { user, token } = response.data;
+      
+      localStorage.setItem('token', token);
+      setUser(user);
+    } catch (error: any) {
       console.error('Registration error:', error);
+      const errorMessage = error.response?.data?.error || 'Registration failed';
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
