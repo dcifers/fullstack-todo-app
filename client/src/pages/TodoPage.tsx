@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Todo } from '../types';
+import { todoAPI } from '../services/api';
 import TodoForm from '../components/TodoForm';
 import TodoItem from '../components/TodoItem';
 import TodoFilter from '../components/TodoFilter';
@@ -12,60 +13,70 @@ const TodoPage: React.FC = () => {
   const { user, logout } = useAuth();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [filter, setFilter] = useState<FilterType>('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data - will replace with API calls later
+  // Load todos from API
   useEffect(() => {
-    const mockTodos: Todo[] = [
-      {
-        id: '1',
-        title: 'Learn React hooks',
-        completed: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        userId: user?.id || '1',
-      },
-      {
-        id: '2',
-        title: 'Build todo app',
-        completed: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        userId: user?.id || '1',
-      },
-    ];
-    setTodos(mockTodos);
+    const loadTodos = async () => {
+      try {
+        setLoading(true);
+        const response = await todoAPI.getTodos();
+        setTodos(response.data.todos);
+      } catch (error: any) {
+        setError('Failed to load todos');
+        console.error('Load todos error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      loadTodos();
+    }
   }, [user]);
 
-  const addTodo = (title: string) => {
-    const newTodo: Todo = {
-      id: Date.now().toString(),
-      title,
-      completed: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      userId: user?.id || '1',
-    };
-    setTodos([newTodo, ...todos]);
+  const addTodo = async (title: string) => {
+    try {
+      const response = await todoAPI.createTodo(title);
+      setTodos([response.data.todo, ...todos]);
+    } catch (error: any) {
+      setError('Failed to create todo');
+      console.error('Create todo error:', error);
+    }
   };
 
-  const toggleTodo = (id: string) => {
-    setTodos(todos.map(todo =>
-      todo.id === id
-        ? { ...todo, completed: !todo.completed, updatedAt: new Date().toISOString() }
-        : todo
-    ));
+  const toggleTodo = async (id: string) => {
+    try {
+      const todo = todos.find(t => t.id === id);
+      if (!todo) return;
+
+      const response = await todoAPI.updateTodo(id, { completed: !todo.completed });
+      setTodos(todos.map(t => t.id === id ? response.data.todo : t));
+    } catch (error: any) {
+      setError('Failed to update todo');
+      console.error('Toggle todo error:', error);
+    }
   };
 
-  const deleteTodo = (id: string) => {
-    setTodos(todos.filter(todo => todo.id !== id));
+  const deleteTodo = async (id: string) => {
+    try {
+      await todoAPI.deleteTodo(id);
+      setTodos(todos.filter(todo => todo.id !== id));
+    } catch (error: any) {
+      setError('Failed to delete todo');
+      console.error('Delete todo error:', error);
+    }
   };
 
-  const editTodo = (id: string, newTitle: string) => {
-    setTodos(todos.map(todo =>
-      todo.id === id
-        ? { ...todo, title: newTitle, updatedAt: new Date().toISOString() }
-        : todo
-    ));
+  const editTodo = async (id: string, newTitle: string) => {
+    try {
+      const response = await todoAPI.updateTodo(id, { title: newTitle });
+      setTodos(todos.map(todo => todo.id === id ? response.data.todo : todo));
+    } catch (error: any) {
+      setError('Failed to update todo');
+      console.error('Edit todo error:', error);
+    }
   };
 
   const filteredTodos = todos.filter(todo => {
@@ -79,6 +90,17 @@ const TodoPage: React.FC = () => {
     active: todos.filter(todo => !todo.completed).length,
     completed: todos.filter(todo => todo.completed).length,
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading todos...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -101,6 +123,18 @@ const TodoPage: React.FC = () => {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-8">
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+            <button
+              onClick={() => setError(null)}
+              className="float-right text-red-500 hover:text-red-700"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         <TodoForm onAdd={addTodo} />
         
         <TodoFilter
