@@ -6,7 +6,7 @@ import Input from '../components/Input';
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
   const { login, loading } = useAuth();
 
   const validateForm = () => {
@@ -20,8 +20,6 @@ const LoginPage: React.FC = () => {
     
     if (!password) {
       newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
     }
     
     setErrors(newErrors);
@@ -34,9 +32,10 @@ const LoginPage: React.FC = () => {
     if (!validateForm()) return;
     
     try {
+      setErrors({}); // Clear previous errors
       await login(email, password);
-    } catch (error) {
-      console.error('Login failed:', error);
+    } catch (error: any) {
+      setErrors({ general: error.message });
     }
   };
 
@@ -44,6 +43,12 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-8 rounded-lg shadow-md w-96">
         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Login</h2>
+        
+        {errors.general && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {errors.general}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit}>
           <Input

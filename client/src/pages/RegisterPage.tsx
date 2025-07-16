@@ -12,7 +12,8 @@ const RegisterPage: React.FC = () => {
     name?: string; 
     email?: string; 
     password?: string; 
-    confirmPassword?: string 
+    confirmPassword?: string;
+    general?: string;
   }>({});
   const { register, loading } = useAuth();
 
@@ -56,9 +57,10 @@ const RegisterPage: React.FC = () => {
     if (!validateForm()) return;
     
     try {
+      setErrors({}); // Clear previous errors
       await register(name, email, password);
-    } catch (error) {
-      console.error('Registration failed:', error);
+    } catch (error: any) {
+      setErrors({ general: error.message });
     }
   };
 
@@ -66,6 +68,12 @@ const RegisterPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-8 rounded-lg shadow-md w-96">
         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Register</h2>
+        
+        {errors.general && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {errors.general}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit}>
           <Input
